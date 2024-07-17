@@ -61,6 +61,13 @@ ___TEMPLATE_PARAMETERS___
         ]
       }
     ]
+  },
+  {
+    "type": "CHECKBOX",
+    "name": "loggingIsEnabled",
+    "checkboxText": "Log to console",
+    "simpleValueType": true,
+    "help": "(optional) If you enable this option the client will log messages to the console. These logs are visible within Logs Explorer in the Google Cloud Console. From Logs Explorer run the query logName \u003d~ \"stdout\" to see log entries."
   }
 ]
 
@@ -76,9 +83,17 @@ const getRequestMethod = require('getRequestMethod');
 const getRequestPath = require('getRequestPath');
 const getRequestBody = require('getRequestBody');
 const JSON = require('JSON');
+const getType = require('getType');
 const runContainer = require('runContainer');
+const setResponseStatus = require('setResponseStatus');
+const setResponseBody = require('setResponseBody');
 const returnResponse = require('returnResponse');
 const logToConsole = require('logToConsole');
+const log = data.loggingIsEnabled ? logToConsole : (() => {});
+
+log("Client template settings: ", data);
+log("Request method: ", getRequestMethod());
+log("Request body: ", getRequestBody());
 
 // Determine if the Client is allowed to claim the request
 if (getRequestPath() === data.path && getRequestMethod() === 'POST') {
@@ -86,13 +101,31 @@ if (getRequestPath() === data.path && getRequestMethod() === 'POST') {
     // Claim the request
     claimRequest();
 
-    // Build the Event Data object
-    const event = JSON.parse(getRequestBody());
-    event.event_name = data.eventName;
+    // Convert HTTP request body to event object
+    const parsedRequestBody = JSON.parse(getRequestBody());
 
-    // Run the container with the event & return response
-    runContainer(event, () => returnResponse());
+    // Do some very basic validation
+    let requestBodyIsValid = true;
+    if(getType(parsedRequestBody) !== 'object') { requestBodyIsValid = false; }
+    if(!parsedRequestBody.id) { requestBodyIsValid = false; }
+    if(!parsedRequestBody.email) { requestBodyIsValid = false; }
+    if(!parsedRequestBody.revenue) { requestBodyIsValid = false; }
 
+    // If valid Then run container
+    if(requestBodyIsValid) {
+        // Create the event object for the container
+        const event = parsedRequestBody;
+        event.event_name = data.eventName;
+
+        // Run the container with the event & return response
+        runContainer(event, () => returnResponse());
+    } else {
+        // Send error response here
+        setResponseStatus(422);
+        setResponseBody("Invalid request payload");
+        returnResponse();
+    }
+    
 }
 
 
@@ -171,6 +204,34 @@ ___SERVER_PERMISSIONS___
       ]
     },
     "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "access_response",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "writeResponseAccess",
+          "value": {
+            "type": 1,
+            "string": "any"
+          }
+        },
+        {
+          "key": "writeHeaderAccess",
+          "value": {
+            "type": 1,
+            "string": "specific"
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
   }
 ]
 
@@ -178,31 +239,115 @@ ___SERVER_PERMISSIONS___
 ___TESTS___
 
 scenarios:
-- name: Happy path
+- name: Valid request & logging disabled
+  code: |
+    // Mock
+    const mockData = {
+      "path": '/fantasy-crm-webhook',
+      "eventName": 'fantasy-crm-offline-purchase',
+      "loggingIsEnabled": false
+    };
+    const mockEvent = {
+      "id": "e45e3467-3e77-46f4-8504-7bfc42ebb17d",
+      "email": "john.doe@sgtm.example.com",
+      "revenue": 99.9
+    };
+    mock('getRequestBody', json.stringify(mockEvent));
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Make assertions.
+    assertApi('runContainer').wasCalled();
+    assertApi('logToConsole').wasNotCalled();
+    //assertApi('setResponseStatus').wasCalledWith(200);
+    assertThat(containerEvent.email).isEqualTo(mockEvent.email);
+- name: Valid request & logging enabled
   code: |-
     // Mock
     const mockData = {
       "path": '/fantasy-crm-webhook',
       "eventName": 'fantasy-crm-offline-purchase',
+      "loggingIsEnabled": true
     };
     const mockEvent = {
-        "id": "e45e3467-3e77-46f4-8504-7bfc42ebb17d",
-        "email": "john.doe@sgtm.example.com",
-        "revenue": 99.9
+      "id": "e45e3467-3e77-46f4-8504-7bfc42ebb17d",
+      "email": "john.doe@sgtm.example.com",
+      "revenue": 99.9
     };
     mock('getRequestBody', json.stringify(mockEvent));
+
     // Call runCode to run the template's code.
     runCode(mockData);
-
 
     // Make assertions.
     assertApi('runContainer').wasCalled();
     //assertApi('setResponseStatus').wasCalledWith(200);
     assertThat(containerEvent.email).isEqualTo(mockEvent.email);
+- name: Invalid request body(empty string) & logging enabled
+  code: |-
+    // Mock
+    const mockData = {
+      "path": '/fantasy-crm-webhook',
+      "eventName": 'fantasy-crm-offline-purchase',
+      "loggingIsEnabled": true
+    };
+    const mockEvent = "";
+    mock('getRequestBody', json.stringify(mockEvent));
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Make assertions.
+    assertApi('setResponseStatus').wasCalledWith(422);
+- name: Invalid request body(array of objects) & logging enabled
+  code: |-
+    // Mock
+    const mockData = {
+      "path": '/fantasy-crm-webhook',
+      "eventName": 'fantasy-crm-offline-purchase',
+      "loggingIsEnabled": true
+    };
+    const mockEvent = [
+      {
+        "id": "e45e3467-3e77-46f4-8504-7bfc42ebb17d",
+        "email": "john.doe@sgtm.example.com",
+        "revenue": 99.9
+      },
+      {
+        "id": "2e2d6fab-9bce-4962-a0b5-8b45f9bae816",
+        "email": "jane.doe@sgtm.example.com",
+        "revenue": 11.1
+      }
+    ];
+    mock('getRequestBody', json.stringify(mockEvent));
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Make assertions.
+    assertApi('setResponseStatus').wasCalledWith(422);
+- name: Invalid request body(object with empty values) & logging enabled
+  code: |-
+    // Mock
+    const mockData = {
+      "path": '/fantasy-crm-webhook',
+      "eventName": 'fantasy-crm-offline-purchase',
+      "loggingIsEnabled": true
+    };
+    const mockEvent = {"id": "", "email": "", "revenue": ""};
+    mock('getRequestBody', json.stringify(mockEvent));
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Make assertions.
+    assertApi('setResponseStatus').wasCalledWith(422);
 setup: |-
   // Imports
   const logToConsole = require('logToConsole');
   const json = require('JSON');
+  const getType = require('getType');
 
   // Mocks
   mock('getRequestPath', '/fantasy-crm-webhook');
