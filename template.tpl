@@ -89,7 +89,7 @@ const setResponseStatus = require('setResponseStatus');
 const setResponseBody = require('setResponseBody');
 const returnResponse = require('returnResponse');
 const logToConsole = require('logToConsole');
-const log = data.loggingIsEnabled ? logToConsole : (() => {});
+const log = data.loggingIsEnabled ? logToConsole : (() => { });
 
 log("Client template settings: ", data);
 log("Request method: ", getRequestMethod());
@@ -106,26 +106,29 @@ if (getRequestPath() === data.path && getRequestMethod() === 'POST') {
 
     // Do some very basic validation
     let requestBodyIsValid = true;
-    if(getType(parsedRequestBody) !== 'object') { requestBodyIsValid = false; }
-    if(!parsedRequestBody.id) { requestBodyIsValid = false; }
-    if(!parsedRequestBody.email) { requestBodyIsValid = false; }
-    if(!parsedRequestBody.revenue) { requestBodyIsValid = false; }
+    if (getType(parsedRequestBody) !== 'object') { requestBodyIsValid = false; }
+    if (!parsedRequestBody.id) { requestBodyIsValid = false; }
+    if (!parsedRequestBody.email) { requestBodyIsValid = false; }
+    if (!parsedRequestBody.revenue) { requestBodyIsValid = false; }
 
-    // If valid Then run container
-    if(requestBodyIsValid) {
+    // If request body is valid
+    if (requestBodyIsValid) {
         // Create the event object for the container
         const event = parsedRequestBody;
         event.event_name = data.eventName;
-
         // Run the container with the event & return response
         runContainer(event, () => returnResponse());
     } else {
-        // Send error response here
+        // Create an error meassge
+        const errorMessage = "Invalid request payload";
+        // Log error
+        log(errorMessage);
+        // Send error response
         setResponseStatus(422);
-        setResponseBody("Invalid request payload");
+        setResponseBody(errorMessage);
         returnResponse();
     }
-    
+
 }
 
 
@@ -198,10 +201,13 @@ ___SERVER_PERMISSIONS___
           "key": "environments",
           "value": {
             "type": 1,
-            "string": "debug"
+            "string": "all"
           }
         }
       ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
     },
     "isRequired": true
   },
