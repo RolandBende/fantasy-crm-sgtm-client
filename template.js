@@ -43,7 +43,7 @@ if (getRequestPath() === data.path && getRequestMethod() === 'POST') {
         // Run the container with the event & return response
         runContainer(event, () => returnResponse());
     } else {
-        // Create an error meassge
+        // Create an error message
         const errorMessage = "Invalid request payload";
         // Log error
         log(errorMessage);
