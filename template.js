@@ -19,7 +19,7 @@ log("Client template settings: ", data);
 log("Request method: ", getRequestMethod());
 log("Request body: ", getRequestBody());
 
-// Determine if the Client is allowed to claim the request
+// Decide whether the Client is allowed to claim the request
 if (getRequestPath() === data.path && getRequestMethod() === 'POST') {
 
     // Claim the request
@@ -35,7 +35,7 @@ if (getRequestPath() === data.path && getRequestMethod() === 'POST') {
     if (!parsedRequestBody.email) { requestBodyIsValid = false; }
     if (!parsedRequestBody.revenue) { requestBodyIsValid = false; }
 
-    // Determine if the request body is valid
+    // Decide whether the request body is valid
     if (requestBodyIsValid) {
         // Create the event object for the container
         const event = parsedRequestBody;
