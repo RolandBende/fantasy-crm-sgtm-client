@@ -35,7 +35,7 @@ if (getRequestPath() === data.path && getRequestMethod() === 'POST') {
     if (!parsedRequestBody.email) { requestBodyIsValid = false; }
     if (!parsedRequestBody.revenue) { requestBodyIsValid = false; }
 
-    // If request body is valid
+    // Determine if the request body is valid
     if (requestBodyIsValid) {
         // Create the event object for the container
         const event = parsedRequestBody;
