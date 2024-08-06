@@ -13,8 +13,11 @@ const setResponseStatus = require('setResponseStatus');
 const setResponseBody = require('setResponseBody');
 const returnResponse = require('returnResponse');
 const logToConsole = require('logToConsole');
-const log = data.loggingIsEnabled ? logToConsole : (() => { });
 
+// Decide whether logging is enabled
+const log = data.loggingIsEnabled ? logToConsole : (() => { return undefined; });
+
+// Do some basic logging for debuging purpose
 log("Client template settings: ", data);
 log("Request method: ", getRequestMethod());
 log("Request body: ", getRequestBody());
